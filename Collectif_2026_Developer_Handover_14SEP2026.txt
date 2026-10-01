@@ -1,0 +1,49 @@
+# Collectif — Session Handover (as of this session)
+
+## What got built/fixed this session
+
+**Foundational polish pass:**
+- Fixed a real bug: `body` CSS in `globals.css` was hardcoding `font-family: Arial` and silently overriding the Geist font the whole time. Fixed.
+- Added a `primary` deep-green color scale to Tailwind v4's `@theme` block in `globals.css` (config lives in CSS for this project, not a JS file — Tailwind v4).
+- Replaced the dropdown `CompNav` with a fixed **BottomTabBar** (`components/BottomTabBar.js`) across all 11 competition pages: Tips / Leaderboard / Home fixed, plus a "More" bottom-sheet listing every other enabled format. Pages got `pt-8 pb-24` padding so content clears the fixed bar.
+- Round Results header cells simplified: removed "vs" text, winner shown by recoloring the team name green instead of a separate duplicate line.
+- Fixed a sticky-column scroll-seam rendering glitch on Round Results (switched to `border-separate` + explicit inline background, same fix already applied to Leaderboard earlier).
+
+**KO Cup split into two pages:**
+- Was one page with a toggle; now `app/competition/[slug]/ko-cup-1/page.js` and `.../ko-cup-2/page.js`, sharing logic via new `lib/koCup.js`.
+- `format_config.enabled` now has separate `ko_cup_1` / `ko_cup_2` keys (previously one shared `ko_cup` key) — admin can now enable one, both, or neither independently.
+- Cup 2 recomputes Cup 1's bye list (same seeded RNG) purely to exclude repeats — only excludes if Cup 1 is actually enabled.
+
+**Real bug found and fixed:** `app/competition/[slug]/page.js` (the root redirector) had gotten overwritten with Eliminator's full page code at some point in the past (not this session) — this had been silently sending everyone to an Eliminator-flavored page while the nav bar still said "Tips" for days. Restored to pure redirect logic. **This file has now been accidentally overwritten twice historically — worth double-checking after any big batch of edits.**
+
+**Billing & Stripe — fully built and tested working end-to-end this session:**
+- Pricing model simplified from the original plan: **flat $5/member covers everything**, including all side competitions bundled in. No more $1/side-comp or $10 bundle — Ben decided that added clunky friction that risked people not turning on the fun stuff.
+- New `payments` table + `paid_member_count` and `admin_unlocked` columns on `competitions` (migration: see `add_payments_table.sql` pattern used this session).
+- New `lib/billing.js` — `getMemberCoverage()` and `getMemberLockStatus()`. Key mechanic: payment covers the *earliest joiners first* (by `joined_at`). Anyone joining later, beyond the paid count, is individually "uncovered" but gets a **2-week grace period from their own join date** before tipping actually locks for them. Existing covered members are never affected by a later join. This replaced an earlier, simpler "lock everyone once Round 2 starts" idea — the per-member/grace-period version is better and is what's actually built.
+- Tips page (`app/competition/[slug]/tips/page.js`) now shows an amber "heads up, X days left" banner during grace period, and a red "tips paused" banner + disables pick/confidence inputs once actually locked. Viewing everything else always stays open (soft lock only).
+- `/api/stripe/create-checkout-session` (route.js) — verifies caller is the comp owner via their access token, computes `memberCount × $5`, creates a Stripe Checkout Session (promo codes enabled), stores a `pending` payment row, returns `session.url`.
+- `/api/stripe/webhook` (route.js) — verifies Stripe signature, on `checkout.session.completed` marks the payment `completed` and raises `paid_member_count` (never lowers it, guards against replay).
+- Settings page (`app/competition/[slug]/settings/page.js`) got a new **Billing section**: shows current members vs. paid-for count, a Pay button when behind, admin-unlocked indicator. **Owner-only visibility** (route is `/competition/[slug]/settings`, no nav link to it — direct URL only).
+- **Confirmed working live**, real Stripe test payment completed, `paid_member_count` updated correctly via webhook, banner cleared. Tested with Stripe CLI (`stripe listen --forward-to localhost:3000/api/stripe/webhook`) for local webhook forwarding.
+- **Not yet built:** the super-admin manual unlock UI (hardcoded to Ben's email) — was the natural next step when this session ended.
+
+## Environment / local setup notes (for reference)
+
+- `.env.local` now also has: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_SITE_URL=http://localhost:3000`
+- Stripe CLI (`stripe.exe`) is NOT on Windows PATH — Ben runs it by `cd`-ing into wherever he put it each session and calling `stripe.exe <command>` directly. The `stripe.exe listen --forward-to localhost:3000/api/stripe/webhook` terminal needs to stay running alongside `npm run dev` for local webhook testing.
+- `next.config.mjs` now has `allowedDevOrigins: ['10.1.1.27']` (Ben's local network IP) so phone testing over local Wi-Fi doesn't get blocked by Turbopack's dev-resource cross-origin protection. This IP can change if the router reassigns it.
+- Supabase Auth → URL Configuration → Redirect URLs has `http://10.1.1.27:3000/**` added (checkbox ticked) for phone auth — but **this is still broken**: magic link emails generated from the phone continue to redirect to `localhost:3000` regardless. Root cause not found — deferred, not blocking anything else, phone testing can be done via Chrome DevTools' device emulator instead (genuinely on `localhost`, sidesteps the whole problem, works fine for visual/layout checks though not real mobile browser quirks).
+- Resend SMTP was configured then reverted back to Supabase's default email sender after hitting an unresolved `535 Authentication credentials invalid` error mid-session — not worth chasing further, default sender's 2-email/hour limit is livable for now.
+
+## Known open issues (carried forward, not blocking)
+
+1. Phone magic-link redirect still goes to `localhost` instead of the phone's IP, despite correct-looking Supabase config. Parked.
+2. Automated results sync (~3hrs post game start) still deferred — needs Vercel Pro or a free external cron scheduler. Manual "Re-populate" on `/admin/fixtures` still works fine meanwhile.
+
+## Where things stand overall (full picture)
+
+**Fully built:** auth (Google OAuth + magic link), competition creation, invite/join, shared season_fixtures architecture with draw handling, full tipping loop, Round Results, GC Leaderboard, MVP, Finals Leaderboard, Eliminator (N-1 scheduling + tie run-off), KO Cup 1 & 2 (now separate pages), Champions League (qualification/groups/lucky-losers/knockout), Night Premiership, full format-configuration admin system (enable/disable, custom names, round overrides), sample-data generator script, bottom tab bar navigation, brand color + font fixed, **billing/Stripe fully working**.
+
+**Not yet built:** super-admin manual unlock UI, deeper visual polish (team crest logos, custom confidence slider, animations, PWA install), privacy policy/TOS, beta launch prep.
+
+**Updated planning doc:** `THE_PLAN_v2.docx` was regenerated this session reflecting the new billing model and full current build status — though note it still reflects the *old* $1/side-comp pricing since the simplification to flat $5/everything happened after that doc was generated. Worth a quick re-edit of just the Business Model section next time it's touched.

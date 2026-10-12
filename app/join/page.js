@@ -1,11 +1,15 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SignInButton from '@/components/SignInButton'
 import MagicLinkForm from '@/components/MagicLinkForm'
 
-export default function JoinCompetition() {
+// The production build requires any component that calls useSearchParams()
+// to sit inside a Suspense boundary (dev mode doesn't enforce this). All the
+// page's logic lives in JoinCompetitionInner; the default export just wraps
+// it.
+function JoinCompetitionInner() {
   const searchParams = useSearchParams()
   const slug = searchParams.get('comp')
   const router = useRouter()
@@ -88,12 +92,12 @@ export default function JoinCompetition() {
   if (status === 'already') {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-2">
-        <p>You're already a member of {competition.name}.</p>
+        <p>You&apos;re already a member of {competition.name}.</p>
         <a href={`/competition/${slug}`} className="text-blue-600 underline">
           Go to competition
         </a>
       </div>
-    );
+    )
   }
 
   return (
@@ -127,5 +131,13 @@ export default function JoinCompetition() {
         </form>
       )}
     </div>
-  );
+  )
+}
+
+export default function JoinCompetition() {
+  return (
+    <Suspense fallback={<p className="p-8">Loading...</p>}>
+      <JoinCompetitionInner />
+    </Suspense>
+  )
 }

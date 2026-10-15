@@ -52,7 +52,12 @@ export async function POST(request) {
       .single()
     if (paymentError) throw paymentError
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    // Work out where to send the user back to from the request itself, rather
+    // than from an environment variable. That variable was still pointing at
+    // localhost on the live site, and a value read from the request can't go
+    // stale - it's right on localhost, a phone on the local network, a Vercel
+    // preview deployment, and production alike.
+    const siteUrl = request.headers.get('origin') || new URL(request.url).origin
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',

@@ -11,14 +11,21 @@ export default function BottomTabBar({ slug }) {
   const supabase = createClient()
   const [competition, setCompetition] = useState(null)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [isOwner, setIsOwner] = useState(false)
 
   useEffect(() => {
-    supabase
-      .from('competitions')
-      .select('id, format_config')
-      .eq('slug', slug)
-      .single()
-      .then(({ data }) => setCompetition(data))
+    async function load() {
+      const { data } = await supabase
+        .from('competitions')
+        .select('id, format_config, owner_id')
+        .eq('slug', slug)
+        .single()
+      setCompetition(data)
+
+      const { data: { user } } = await supabase.auth.getUser()
+      setIsOwner(!!(user && data && data.owner_id === user.id))
+    }
+    load()
   }, [slug])
 
   const moreTabs = [

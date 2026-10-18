@@ -38,6 +38,8 @@ export default function BottomTabBar({ slug }) {
     { key: 'champions_league', href: `/competition/${slug}/champions-league` },
     { key: 'night_prem', href: `/competition/${slug}/night-prem` },
     { key: null, href: `/competition/${slug}/overview`, label: 'Overview' },
+    // Only the competition's owner (admin) gets a way into Settings
+    ...(isOwner ? [{ key: null, href: `/competition/${slug}/settings`, label: 'Settings' }] : []),
   ]
     .filter(t => !t.key || isFormatEnabled(t.key, competition))
     .map(t => ({ ...t, label: t.key ? getFormatLabel(t.key, competition) : t.label }))

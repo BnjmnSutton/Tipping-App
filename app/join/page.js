@@ -34,11 +34,12 @@ function JoinCompetitionInner() {
       if (cancelled) return
       setUser(currentUser)
 
-      const { data: comp } = await supabase
-        .from('competitions')
-        .select('*')
-        .eq('slug', slug)
-        .single()
+      // Via a database function rather than a direct table query: people who
+      // haven't joined yet (including anyone signed out) aren't allowed to read
+      // the competitions table, but they need to see the competition's name to
+      // join it. The function returns just the few fields the join screen needs.
+      const { data: compRows } = await supabase.rpc('get_competition_for_join', { comp_slug: slug })
+      const comp = compRows && compRows.length > 0 ? compRows[0] : null
       if (cancelled) return
       setCompetition(comp)
 

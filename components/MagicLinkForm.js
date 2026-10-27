@@ -3,34 +3,38 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-export default function MagicLinkForm() {
+// `next` is an optional path (e.g. "/join?comp=my-comp") to send the user back
+// to after they click the emailed link.
+export default function MagicLinkForm({ next }) {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState('idle') // idle | sending | sent | error
+  const [errorMsg, setErrorMsg] = useState('')
   const supabase = createClient()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setStatus('sending')
+    setErrorMsg('')
 
     try {
+      const callback = `${window.location.origin}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: callback,
         },
       })
 
       if (error) {
-        alert('Supabase returned an error: ' + error.message)
         console.error('Magic link error:', error)
+        setErrorMsg(error.message)
         setStatus('error')
       } else {
-        alert('Success - no error returned.')
         setStatus('sent')
       }
     } catch (err) {
-      alert('CRASHED: ' + (err?.message || String(err)))
       console.error('Magic link threw:', err)
+      setErrorMsg(err?.message || String(err))
       setStatus('error')
     }
   }
@@ -52,7 +56,9 @@ export default function MagicLinkForm() {
       <button type="submit" disabled={status === 'sending'}>
         {status === 'sending' ? 'Sending...' : 'Send magic link'}
       </button>
-      {status === 'error' && <p className="text-red-600">Something went wrong. Try again.</p>}
+      {status === 'error' && (
+        <p className="text-red-600 text-sm">Something went wrong{errorMsg ? `: ${errorMsg}` : ''}. Try again.</p>
+      )}
     </form>
   )
 }

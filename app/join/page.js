@@ -109,9 +109,9 @@ function JoinCompetitionInner() {
       {!user ? (
         <div className="flex flex-col items-center gap-2">
           <p>Sign in to join this competition.</p>
-          <SignInButton />
+          <SignInButton next={`/join?comp=${encodeURIComponent(slug)}`} />
           <p>or</p>
-          <MagicLinkForm />
+          <MagicLinkForm next={`/join?comp=${encodeURIComponent(slug)}`} />
         </div>
       ) : (
         <form onSubmit={(e) => handleJoin(e)} className="flex flex-col gap-3 w-full max-w-sm">

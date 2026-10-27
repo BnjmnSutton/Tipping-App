@@ -2,14 +2,18 @@
 'use client'
 import { createClient } from '@/lib/supabase/client'
 
-export default function SignInButton() {
+// `next` is an optional path (e.g. "/join?comp=my-comp") to send the user back
+// to after signing in. Without it they land wherever the auth callback sends
+// people by default.
+export default function SignInButton({ next }) {
   const supabase = createClient()
 
   const handleSignIn = async () => {
+    const callback = `${window.location.origin}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: callback,
       },
     })
     if (data?.url) {
